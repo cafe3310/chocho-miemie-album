@@ -80,6 +80,9 @@ def markdown_to_html(md_text):
     lines = md_text.split("\n")
     html_lines = []
     in_code_block = False
+    custom_code_block = False
+    custom_title = ""
+    code_block_lines = []
     in_list = False
     
     for line in lines:
@@ -88,14 +91,29 @@ def markdown_to_html(md_text):
         if stripped.startswith("```"):
             if in_code_block:
                 in_code_block = False
-                html_lines.append("</code></pre>")
+                joined_code = "\n".join(code_block_lines)
+                if custom_code_block:
+                    custom_code_block = False
+                    wrapped = f"""<div style="border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 1.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background-color: #fafafa; font-size: 0.9rem;">
+  <div style="padding: 0.5rem 1rem; border-bottom: 1px solid #eaeaea; color: #666666; font-weight: 500; font-size: 0.85rem;">{html.escape(custom_title)}</div>
+  <div style="padding: 1rem; color: #333333; line-height: 1.6; white-space: pre-wrap;">{joined_code}</div></div>"""
+                    html_lines.append(wrapped)
+                else:
+                    wrapped = f"<pre><code>{joined_code}</code></pre>"
+                    html_lines.append(wrapped)
             else:
                 in_code_block = True
-                html_lines.append("<pre><code>")
+                code_block_lines = []
+                if ":" in stripped:
+                    parts = stripped.split(":", 1)
+                    custom_title = parts[1].strip()
+                    custom_code_block = True
+                else:
+                    custom_code_block = False
             continue
             
         if in_code_block:
-            html_lines.append(html.escape(line))
+            code_block_lines.append(html.escape(line))
             continue
             
         # 处理标题 ### 
@@ -134,6 +152,15 @@ def markdown_to_html(md_text):
             if in_list:
                 html_lines.append("</ul>")
                 in_list = False
+            continue
+            
+        # 放行原生 HTML 标签，避免对其转义
+        if stripped.startswith("<") and (stripped.endswith(">") or stripped.endswith("-->") or "class=" in stripped or "style=" in stripped or "width=" in stripped):
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
+            processed_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', stripped)
+            html_lines.append(processed_html)
             continue
             
         # 行内 code 替换为 <code>
@@ -225,6 +252,44 @@ def render_page(content, title, description, path_prefix, nav_notes_active, nav_
     
     return page
 
+def resolve_wikilinks(text, posts, is_detail_page=True):
+    def replace_wikilink(match):
+        target = match.group(1).strip()
+        link_text = match.group(2)
+        if link_text is not None:
+            link_text = link_text.strip()
+        else:
+            link_text = target
+            
+        matched = None
+        # Phase 1: Exact match on ID, title, or filename
+        for p in posts:
+            p_id = p.get("id", "")
+            p_title = p.get("title", "")
+            p_filename = p.get("filename", "")
+            if target.lower() == p_id.lower() or target.lower() == p_filename.lower() or target.lower() == p_title.lower():
+                matched = p
+                break
+                
+        # Phase 2: Fuzzy substring match
+        if not matched:
+            for p in posts:
+                p_id = p.get("id", "")
+                p_title = p.get("title", "")
+                if target.lower() in p_id.lower() or target.lower() in p_title.lower() or p_id.lower() in target.lower() or p_title.lower() in target.lower():
+                    matched = p
+                    break
+                    
+        if matched:
+            post_id = matched.get("id")
+            url = f"{post_id}.html" if is_detail_page else f"posts/{post_id}.html"
+            return f'<a href="{url}">{link_text}</a>'
+            
+        return link_text
+        
+    return re.sub(r'\[\[([^\]|]+)(?:\|([^\]]+))?\]\]', replace_wikilink, text)
+
+
 def build_site():
     print("Building static site...")
     posts = []
@@ -289,6 +354,30 @@ def build_site():
             md_text = "---".join(parts[2:])
             
             meta = parse_yaml(yaml_text)
+            
+            # 支持 [asset: N] 引用语法 (1-based)
+            assets = meta.get("assets", [])
+            def replace_asset(match):
+                idx_str = match.group(1)
+                try:
+                    idx = int(idx_str) - 1
+                    if 0 <= idx < len(assets):
+                        asset = assets[idx]
+                        url = asset.get("url", "")
+                        title = asset.get("title", "")
+                        if url.startswith("./"):
+                            url = "../" + url[2:]
+                        
+                        caption_html = f'<div style="font-size: 0.85rem; color: #888888; text-align: center; margin-top: 0.25rem;">{html.escape(title)}</div>' if title else ""
+                        return f"""<div style="text-align: center; margin-bottom: 1.5rem;">
+  <img src="{url}" style="width: 100%; max-width: 680px; border: 1px solid #eeeeee;" alt="{html.escape(title)}">
+  {caption_html}
+</div>"""
+                except Exception:
+                    pass
+                return match.group(0)
+                
+            md_text = re.sub(r'\[asset:\s*(\d+)\]', replace_asset, md_text)
             body_html = markdown_to_html(md_text)
             
             meta["bodyHtml"] = body_html
@@ -493,7 +582,7 @@ def build_site():
         post_content = post_content.replace("<!-- {{POST_DATE}} -->", post.get("date", ""))
         post_content = post_content.replace("<!-- {{POST_CATEGORY}} -->", post.get("category", ""))
         post_content = post_content.replace("<!-- {{POST_TITLE}} -->", post.get("title", ""))
-        post_content = post_content.replace("<!-- {{POST_BODY}} -->", post.get("bodyHtml", ""))
+        post_content = post_content.replace("<!-- {{POST_BODY}} -->", resolve_wikilinks(post.get("bodyHtml", ""), posts, is_detail_page=True))
         post_content = post_content.replace("<!-- {{POST_GALLERY}} -->", post_gallery_str)
         post_content = post_content.replace("<!-- {{POST_DATA_JSON}} -->", json.dumps(post_data_copy, ensure_ascii=False))
 

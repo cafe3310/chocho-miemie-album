@@ -29,6 +29,6 @@
    - 将处理后的图片移动到 `gallery/` 目录。
    - 遵循命名规范：
      - 文章文稿：`source/YYYY-MM-DD-HH-mm-{title}.md`
-     - 图片资源：`gallery/YYYY-MM-DD-HH-mm-{title}-{identity_id}.jpg`（`identity_id` 为猫咪身份如 `jiujiu`, `miemie` 或序号）。
+     - 图片资源：`gallery/YYYY-MM-DD-HH-mm-{title}-{identity_id}.jpg`（`identity_id` 为猫咪身份如 `chocho`, `miemie` 或序号）。
    - 结合用户的内容构想，在 `source/` 下生成包含 YAML Frontmatter 的文章 Markdown 模板。
 3. Agent 在终端中运行 `zed source/YYYY-MM-DD-HH-mm-{title}.md` 打开生成好的文章，供用户最终编辑。

@@ -1,0 +1,22 @@
+- **实现功能**：
+  - 新增了猫咪角色设定文章《用于练习图片生成的猫咪角色设定》，全方位呈现啾啾与咩咩的拟人设定。
+  - 新增了 `[asset: N]` 原生资产引用语法、代码块冒号标题语法 ` ```text:标题 `，消除了代码块容器首行多余换行符；支持了 Markdown 正文维基链接及极简无色彩配色转换。
+  - 优化了网页全局列表的小圆点样式，缩减为极精细的 3px currentColor 圆点。
+  - 整合了 CC BY-NC-SA 4.0 许可声明至页面底部。
+  - 使用 ImageMagick 将 4 张下载的原图拼接生成了 2x2 透明背景的对比 Collage 拼图。
+  - 处理并导入了「啾啾和咩咩形象对比图」以及两只猫咪共 8 张设定图、4 张生成风格示例图，均完成缩放、转码与版权 EXIF 注入，并按角色真实归属纠正了文件命名，在“一些例子”正文小节下嵌入了这 4 张示例图。
+  - 将角色设定文章的所有资产描述统一为了隐式 `alt` 属性。
+  - 大幅优化了大图 Lightbox（点击弹窗）的体验：使标题在图片下方居中展示且字号更精致；将最大宽度拓宽至 900px，最大高度拓宽至 70vh，使其适应高分辨率屏幕。
+  - 纠正了小猫啾啾（`Chocho`）在项目中的拼写，将所有将 `chocho` 称为 `jiujiu` 的文件命名、路径、ID 及文档内容统一订正为 `chocho`。
+  - 将新增文章由原先的 `cat-character-settings` 简化重构为 `cat-oc-design`，同步批量重命名并更新了所有相关的图片资产文件名和引用。
+
+- **主要修改**：
+  - 新增并重命名了文章为 [source/2026-06-09-19-53_chocho-at-2019.md](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/source/2026-06-09-19-53_chocho-at-2019.md) 和 [source/2026-06-14-20-13-cat-oc-design.md](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/source/2026-06-14-20-13-cat-oc-design.md)。
+  - 对 14 张新增图像资产（包含 12 张 `cat-oc-design` 图片资产）重命名、处理并输出到 `gallery/`。此外，应用户要求用 `inbox/` 放入的新图片物理替换了 `gallery/2026-06-14-20-13-cat-oc-design-chocho-6.jpg`（啾啾钻个纸箱子），重新执行了转码与版权 EXIF 写入。同时，使用 ImageMagick 将 2x2 拼图 `gallery/2026-06-14-20-13-cat-oc-design-collage.png` 的左右画布拓宽为 `2094x1096`（以适配 Twitter 大图卡片预览默认的 1.91:1 比例），并保留其支持透明背景的 PNG 格式。
+  - 全局替换了文章 Markdown 内容及 [AGENTS.md](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/AGENTS.md) 里的 `jiujiu` 拼写为 `chocho`。
+  - 修改了 [src/build.py](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/src/build.py)，重构代码块解析、资产替换及维基链接匹配机制。
+  - 修改了 [source/2026-06-14-20-13-cat-oc-design.md](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/source/2026-06-14-20-13-cat-oc-design.md)，将 `chocho-6` 的隐式 alt 描述文字更正为“啾啾发呆。”，并将拓宽后的透明 PNG 拼图设定为了文章的默认缩略图（`thumbnail`）及第一资产。
+  - 修改了 [src/styles.css](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/src/styles.css)、[templates/post.html](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/templates/post.html) 与 [src/app.js](file:///Users/sipan/workspace/_working/jiujiu-miemie-gallery/src/app.js)，全面重构和扩展了 Lightbox 样式及弹窗宽高限制，微调了正文链接及无序列表等设计细节。
+  - 运行构建脚本，编译了全站静态文件至 `docs/` 目录。
+
+- **验证结论**：全站重建顺利，静态页面正常渲染，列表点、代码块及维基链接工作完好，Lightbox 弹窗大图正常显示且路径链接无损坏，已完全将 `jiujiu` 更正为 `chocho`。
