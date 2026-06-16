@@ -40,7 +40,7 @@ def get_image_info(cmd_name, file_path):
         print(f"获取图片信息失败 {file_path}: {e}", file=sys.stderr)
     return None
 
-def process_single_image(cmd_name, file_path, output_dir=None, artist=DEFAULT_ARTIST, copyright_text=DEFAULT_COPYRIGHT):
+def process_single_image(cmd_name, file_path, output_dir=None, artist=DEFAULT_ARTIST, copyright_text=DEFAULT_COPYRIGHT, sticker=False):
     """处理单张图片"""
     info = get_image_info(cmd_name, file_path)
     if not info:
@@ -62,7 +62,8 @@ def process_single_image(cmd_name, file_path, output_dir=None, artist=DEFAULT_AR
         
     output_path = os.path.join(out_dir, base_name + target_ext)
     
-    need_resize = max_dim > 2048
+    max_dim_limit = 512 if sticker else 2048
+    need_resize = max_dim > max_dim_limit
     need_convert = not is_jpeg
     
     # 如果是 JPEG 且最长边 <= 2048，则直接复制（或原地跳过），保留原始无损质量
@@ -76,14 +77,18 @@ def process_single_image(cmd_name, file_path, output_dir=None, artist=DEFAULT_AR
         # 需要处理（缩放或格式转换）
         action_str = []
         if need_resize:
-            action_str.append(f"缩放最长边至 2048px (原图 {w}x{h})")
+            action_str.append(f"缩放最长边至 {max_dim_limit}px (原图 {w}x{h})")
         if need_convert:
             action_str.append(f"转换格式为 JPEG (原格式 {fmt})")
         
         print(f"-> 处理中 ({', '.join(action_str)}): {file_name}")
         
         # 使用 ImageMagick 转换/缩放。> 语法确保只有在大图时才缩小
-        im_cmd = [cmd_name, file_path, "-resize", "2048x2048>", "-quality", "95", output_path]
+        resize_arg = f"{max_dim_limit}x{max_dim_limit}>"
+        if sticker:
+            im_cmd = [cmd_name, file_path, "-filter", "Lanczos", "-resize", resize_arg, "-quality", "95", output_path]
+        else:
+            im_cmd = [cmd_name, file_path, "-resize", resize_arg, "-quality", "95", output_path]
         try:
             subprocess.run(im_cmd, check=True)
         except subprocess.CalledProcessError as e:
@@ -127,6 +132,7 @@ def main():
     parser = argparse.ArgumentParser(description="画廊图片统一处理工具：最长边2048px，保留原JPEG质量，其他格式转95% JPEG，移除敏感元数据（保留色彩配置文件）并注入版权信息。")
     parser.add_argument("paths", nargs="*", help="输入的文件或目录路径。如果为空，默认处理 gallery 目录。")
     parser.add_argument("-o", "--output", help="输出目录。如果不指定，则原地覆盖（并自动清理非 JPEG 原图）。")
+    parser.add_argument("--sticker", action="store_true", help="处理为表情包规格：最长边至多 512px，并使用 Lanczos 滤镜保持锐度。")
     parser.add_argument("-a", "--artist", default=DEFAULT_ARTIST, help=f"创作者名称 (默认: {DEFAULT_ARTIST})")
     parser.add_argument("-c", "--copyright", default=DEFAULT_COPYRIGHT, help=f"版权声明文本 (默认: {DEFAULT_COPYRIGHT})")
     
@@ -168,7 +174,7 @@ def main():
         
     success_count = 0
     for file_path in files_to_process:
-        if process_single_image(cmd_name, file_path, args.output, args.artist, args.copyright):
+        if process_single_image(cmd_name, file_path, args.output, args.artist, args.copyright, args.sticker):
             success_count += 1
             
     print(f"\n处理完成: 成功 {success_count}/{len(files_to_process)} 张图片。")

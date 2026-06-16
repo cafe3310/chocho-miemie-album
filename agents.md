@@ -19,6 +19,7 @@
 
 - 构建：`python3 src/build.py`
 - 处理图片：`python3 src/process_images.py`
+- 处理表情包/贴纸：`python3 src/process_images.py --sticker`
 - 本地预览：`python3 -m http.server 8000 -d docs`
 
 ## Blog 协作工作流
@@ -26,6 +27,7 @@
 1. 用户提供博客内容构想，并将原始图片放入项目根目录下的 `inbox/` 目录中。
 2. Agent 负责执行以下自动化处理：
    - 运行图片处理脚本对 `inbox/` 内的图片进行缩放、转码与版权注入。
+   - 对表情包/贴纸，使用 `--sticker` 标志将最长边限制在 512px 内并应用 Lanczos 缩放滤镜以保持锐度（其他图片不使用此参数）。
    - 将处理后的图片移动到 `gallery/` 目录。
    - 遵循命名规范：
      - 文章文稿：`source/YYYY-MM-DD-HH-mm-{title}.md`

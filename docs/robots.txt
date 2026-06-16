@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cafe3310.github.io/chocho-miemie-album/site-sitemap.xml
+Sitemap: https://cafe3310.github.io/chocho-miemie-album/sitemap.xml

@@ -75,7 +75,12 @@ def parse_yaml(yaml_text):
                 
     return data
 
-# 一个极简的 Markdown 到 HTML 解析器
+def parse_inline(text):
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'\[([^\]\n]+)\]\(([^)\n]+)\)', r'<a href="\2">\1</a>', text)
+    return text
+
+# 一个极极简的 Markdown 到 HTML 解析器
 def markdown_to_html(md_text):
     lines = md_text.split("\n")
     html_lines = []
@@ -122,7 +127,7 @@ def markdown_to_html(md_text):
                 html_lines.append("</ul>")
                 in_list = False
             html_content = html.escape(stripped[4:])
-            html_content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_content)
+            html_content = parse_inline(html_content)
             html_lines.append(f"<h3>{html_content}</h3>")
             continue
             
@@ -132,7 +137,7 @@ def markdown_to_html(md_text):
                 html_lines.append("<ul>")
                 in_list = True
             html_content = html.escape(stripped[2:])
-            html_content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_content)
+            html_content = parse_inline(html_content)
             html_lines.append(f"<li>{html_content}</li>")
             continue
             
@@ -143,7 +148,7 @@ def markdown_to_html(md_text):
                 html_lines.append("<ul>")
                 in_list = True
             html_content = html.escape(content)
-            html_content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_content)
+            html_content = parse_inline(html_content)
             html_lines.append(f"<li>{html_content}</li>")
             continue
             
@@ -159,7 +164,7 @@ def markdown_to_html(md_text):
             if in_list:
                 html_lines.append("</ul>")
                 in_list = False
-            processed_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', stripped)
+            processed_html = parse_inline(stripped)
             html_lines.append(processed_html)
             continue
             
@@ -172,12 +177,12 @@ def markdown_to_html(md_text):
                     processed += f"<code>{html.escape(part)}</code>"
                 else:
                     escaped_part = html.escape(part)
-                    escaped_part = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', escaped_part)
+                    escaped_part = parse_inline(escaped_part)
                     processed += escaped_part
             html_lines.append(f"<p>{processed}</p>")
         else:
             html_content = html.escape(stripped)
-            html_content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_content)
+            html_content = parse_inline(html_content)
             html_lines.append(f"<p>{html_content}</p>")
             
     if in_list:
@@ -699,42 +704,61 @@ def build_site():
             shutil.copy(src_file, dest_file)
             print(f"  Copied verification file: {file_name} to docs/")
 
-    # 6. 生成 sitemap.xml 和 robots.txt
+    # 6. 生成 sitemap.xml, site-sitemap.xml 和 robots.txt
     sitemap_path = os.path.join(docs_dir, "sitemap.xml")
+    site_sitemap_path = os.path.join(docs_dir, "site-sitemap.xml")
     robots_path = os.path.join(docs_dir, "robots.txt")
     
+    import datetime
+    
+    # 收集所有文件的修改时间以供 index.html (首页) 和 links.html 计算使用
+    all_mtimes = []
+    posts_mtimes = {}
+    
+    for post in posts:
+        post_path = os.path.join(source_dir, post.get("filename"))
+        if os.path.exists(post_path):
+            mtime = os.path.getmtime(post_path)
+            all_mtimes.append(mtime)
+            posts_mtimes[post.get("id")] = datetime.date.fromtimestamp(mtime).isoformat()
+            
+    links_md_path = os.path.join(source_dir, "_links.md")
+    links_lastmod = None
+    if os.path.exists(links_md_path):
+        mtime = os.path.getmtime(links_md_path)
+        all_mtimes.append(mtime)
+        links_lastmod = datetime.date.fromtimestamp(mtime).isoformat()
+    else:
+        links_lastmod = datetime.date.today().isoformat()
+        
+    meta_path = os.path.join(source_dir, "_meta.md")
+    if os.path.exists(meta_path):
+        all_mtimes.append(os.path.getmtime(meta_path))
+        
+    if all_mtimes:
+        latest_lastmod = datetime.date.fromtimestamp(max(all_mtimes)).isoformat()
+    else:
+        latest_lastmod = datetime.date.today().isoformat()
+    
     sitemap_urls = []
-    latest_date = None
-    if posts:
-        latest_date = posts[0].get("date")
-    
-    if not latest_date:
-        import datetime
-        latest_date = datetime.date.today().isoformat()
-    
     sitemap_urls.append({
         "loc": site_url,
-        "lastmod": latest_date,
-        "changefreq": "daily",
-        "priority": "1.0"
+        "lastmod": latest_lastmod
     })
     
     sitemap_urls.append({
         "loc": f"{site_url}links.html",
-        "lastmod": latest_date,
-        "changefreq": "weekly",
-        "priority": "0.5"
+        "lastmod": links_lastmod
     })
     
     for post in posts:
-        post_date = post.get("date")
-        if not post_date:
-            post_date = latest_date
+        post_id = post.get("id")
+        post_lastmod = posts_mtimes.get(post_id)
+        if not post_lastmod:
+            post_lastmod = latest_lastmod
         sitemap_urls.append({
-            "loc": f"{site_url}posts/{post.get('id')}.html",
-            "lastmod": post_date,
-            "changefreq": "monthly",
-            "priority": "0.8"
+            "loc": f"{site_url}posts/{post_id}.html",
+            "lastmod": post_lastmod
         })
         
     xml_lines = [
@@ -745,14 +769,17 @@ def build_site():
         xml_lines.append('  <url>')
         xml_lines.append(f'    <loc>{html.escape(url_info["loc"])}</loc>')
         xml_lines.append(f'    <lastmod>{html.escape(url_info["lastmod"])}</lastmod>')
-        xml_lines.append(f'    <changefreq>{html.escape(url_info["changefreq"])}</changefreq>')
-        xml_lines.append(f'    <priority>{html.escape(url_info["priority"])}</priority>')
         xml_lines.append('  </url>')
     xml_lines.append('</urlset>')
     
+    xml_content = "\n".join(xml_lines) + "\n"
     with open(sitemap_path, 'w', encoding='utf-8') as f:
-        f.write("\n".join(xml_lines) + "\n")
+        f.write(xml_content)
     print("  Generated sitemap.xml")
+    
+    with open(site_sitemap_path, 'w', encoding='utf-8') as f:
+        f.write(xml_content)
+    print("  Generated site-sitemap.xml")
     
     robots_content = f"""User-agent: *
 Allow: /
