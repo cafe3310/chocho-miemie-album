@@ -242,7 +242,7 @@ def get_post_images(post, site_url):
     return post_images
 
 
-def render_page(content, title, description, path_prefix, nav_notes_active, nav_links_active, json_ld, base_template, meta_og=""):
+def render_page(content, title, description, path_prefix, nav_notes_active, nav_links_active, json_ld, base_template, meta_og="", canonical_url=""):
     page = base_template
     page = page.replace("<!-- {{TITLE}} -->", title)
     page = page.replace("<!-- {{META_DESCRIPTION}} -->", description)
@@ -254,6 +254,10 @@ def render_page(content, title, description, path_prefix, nav_notes_active, nav_
     json_ld_str = f'<script type="application/ld+json">\n{json.dumps(json_ld, ensure_ascii=False, indent=2)}\n</script>'
     page = page.replace("<!-- {{JSON_LD}} -->", json_ld_str)
     page = page.replace("<!-- {{META_OG}} -->", meta_og)
+    if canonical_url:
+        page = page.replace("<!-- {{CANONICAL_URL}} -->", f'<link rel="canonical" href="{canonical_url}">')
+    else:
+        page = page.replace("<!-- {{CANONICAL_URL}} -->", "")
     
     return page
 
@@ -287,7 +291,7 @@ def resolve_wikilinks(text, posts, is_detail_page=True):
                     
         if matched:
             post_id = matched.get("id")
-            url = f"{post_id}.html" if is_detail_page else f"posts/{post_id}.html"
+            url = f"{post_id}.html" if is_detail_page else f"{site_url}posts/{post_id}.html"
             return f'<a href="{url}">{link_text}</a>'
             
         return link_text
@@ -433,7 +437,7 @@ def build_site():
 
         post_list_html.append(f"""
         <article class="post-item">
-          <a href="posts/{post.get('id')}.html">
+          <a href="{site_url}posts/{post.get('id')}.html">
             <div class="post-thumbnail">
               <img src="{thumb_url}" alt="{html.escape(post.get('title', ''))}" loading="lazy">
             </div>
@@ -494,7 +498,8 @@ def build_site():
         nav_links_active=False,
         json_ld=index_json_ld,
         base_template=base_template,
-        meta_og=index_meta_og
+        meta_og=index_meta_og,
+        canonical_url=site_url
     )
 
     with open(os.path.join(docs_dir, "index.html"), 'w', encoding='utf-8') as f:
@@ -538,7 +543,8 @@ def build_site():
         nav_links_active=True,
         json_ld=links_json_ld,
         base_template=base_template,
-        meta_og=links_meta_og
+        meta_og=links_meta_og,
+        canonical_url=f"{site_url}links.html"
     )
 
     with open(os.path.join(docs_dir, "links.html"), 'w', encoding='utf-8') as f:
@@ -669,7 +675,8 @@ def build_site():
             nav_links_active=False,
             json_ld=post_json_ld,
             base_template=base_template,
-            meta_og=post_meta_og
+            meta_og=post_meta_og,
+            canonical_url=f"{site_url}posts/{post.get('id')}.html"
         )
 
         post_output_path = os.path.join(posts_output_dir, f"{post.get('id')}.html")
